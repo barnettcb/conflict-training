@@ -1,7 +1,7 @@
 {
   "name": "Personal Conflict Training",
   "short_name": "Conflict Training",
-  "description": "Local-first skills training for conflict awareness, interruption, regulation, listening, and later modules.",
+  "description": "Local-first mindfulness and conflict skills training.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

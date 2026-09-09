@@ -130,3 +130,33 @@ tr:last-child td { border-bottom:0; }
   .nav-btn { font-size:10px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
+
+/* v0.2.0 security, course foundation, and practice additions */
+.subtle { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.danger-btn { color: var(--danger); border-color: #ddbcbc; background: #fff7f6; }
+.timer-display { font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 800; letter-spacing: .03em; color: var(--accent-2); margin: 14px 0; text-align: center; }
+.timer-card .btn-row { justify-content: center; }
+
+.lock-shell { min-height: 100vh; min-height: 100dvh; padding: calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom)); display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#e8f1f8 0%,#f4f7f9 100%); overflow:auto; }
+.lock-card { width:min(390px,100%); background:var(--panel); border:1px solid #c7d6e2; border-radius:20px; box-shadow:0 10px 32px rgba(35,67,96,.14); padding:24px 18px 20px; text-align:center; }
+.lock-brand { color:var(--accent-2); font-weight:850; font-size:18px; letter-spacing:-.01em; }
+.lock-version { color:var(--muted); font-size:11px; margin-top:2px; }
+.lock-card h1 { font-size:24px; margin:22px 0 6px; }
+.lock-card p { color:var(--muted); line-height:1.45; margin:0 auto; max-width:300px; }
+.pin-dots { display:flex; justify-content:center; gap:14px; margin:22px 0 10px; }
+.pin-dot { width:15px; height:15px; border-radius:50%; border:2px solid #8ea5b9; background:#fff; }
+.pin-dot.filled { background:var(--accent); border-color:var(--accent); }
+.pin-message { min-height:20px; color:var(--danger); font-size:13px; opacity:0; margin-bottom:8px; }
+.pin-message.show { opacity:1; }
+.pin-keypad { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:8px auto 12px; max-width:300px; }
+.pin-keypad button { min-height:58px; border:1px solid var(--line); border-radius:14px; background:#f7fafc; color:var(--text); font-size:22px; font-weight:760; }
+.pin-keypad button:active { background:var(--accent-soft); }
+.pin-keypad button[disabled] { opacity:0; pointer-events:none; }
+.forgot-btn { border:0; background:transparent; color:var(--accent); min-height:44px; padding:8px 12px; font-weight:720; }
+body.privacy-covered::after { content:""; position:fixed; inset:0; z-index:99999; background:#edf3f8; }
+
+@media (max-width:360px) {
+  .lock-card { padding-left:14px; padding-right:14px; }
+  .pin-keypad { gap:8px; }
+  .pin-keypad button { min-height:54px; }
+}

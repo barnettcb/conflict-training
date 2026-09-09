@@ -1,20 +1,265 @@
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const DB_NAME = 'ConflictTrainingDB';
 const DB_VERSION = 1;
 const STORE = 'state';
 const STATE_KEY = 'app-state';
+const AUTO_LOCK_MS = 5 * 60 * 1000;
 
 const DEFAULT_STATE = {
-  route: 'home',
-  currentLesson: '1.1',
+  route: 'course',
+  currentLesson: 'F1',
   completed: {},
   fields: {},
   quizzes: {},
+  security: { pinSet:false, pinSalt:'', pinHash:'' },
   updatedAt: null
 };
 
+const FOUNDATION_LESSONS = [
+  {
+    id:'F1',
+    section:'foundation',
+    title:'What Mindfulness Is',
+    subtitle:'Learn the basic attention skill that supports awareness, choice, and effective responding.',
+    badges:['Standard DBT foundation','Mindfulness'],
+    body:`
+      <section class="card"><div class="card-header"><div class="section-kicker">Start from zero</div><div class="section-title">Mindfulness is a way of paying attention</div></div><div class="card-body copy">
+        <p>In standard DBT, mindfulness means intentionally bringing attention to what is happening in the present moment. It is the opposite of moving through experience entirely on automatic pilot. The aim is not to force the mind to become blank. Thoughts, emotions, sensations, memories, and urges can all be present while mindfulness is being practiced.</p>
+        <p>Mindfulness matters in conflict because many unhelpful reactions happen quickly. A person may notice an urge to interrupt, a tightening in the body, a judgment, or the beginning of an answer before there has been a deliberate decision to act. Training attention makes those moments easier to notice.</p>
+        <div class="callout key"><strong>Training target:</strong> notice present experience clearly enough that automatic behavior becomes more visible and choice becomes more available.</div>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Standard DBT map</div><div class="section-title">What skills and How skills</div></div><div class="card-body copy">
+        <p>Standard DBT organizes core mindfulness into two groups. The <strong>What skills</strong> describe what a person does when practicing mindfulness. The <strong>How skills</strong> describe the attitude or manner used while doing it.</p>
+        <div class="grid-2">
+          <div class="mini-card"><div class="mini-title">What skills</div><strong>Observe</strong> what is happening. <strong>Describe</strong> what is noticed. <strong>Participate</strong> fully in the current activity.</div>
+          <div class="mini-card"><div class="mini-title">How skills</div>Practice <strong>nonjudgmentally</strong>, <strong>one-mindfully</strong>, and <strong>effectively</strong>.</div>
+        </div>
+        <p>This foundation will concentrate first on observing, describing, and one-mindful attention because they are directly relevant to detecting activation and listening during conflict.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">What mindfulness is not</div><div class="section-title">Common misunderstandings</div></div><div class="card-body copy">
+        <ul>
+          <li><strong>Not thought suppression:</strong> noticing a thought is different from making the thought disappear.</li>
+          <li><strong>Not relaxation training:</strong> relaxation can occur, but calmness is not the test of whether mindfulness is working.</li>
+          <li><strong>Not agreement:</strong> observing an idea or another person's words does not mean endorsing them.</li>
+          <li><strong>Not passive:</strong> mindfulness can lead to firm, direct action. The key is that the action is noticed and chosen rather than purely automatic.</li>
+          <li><strong>Not perfect concentration:</strong> attention will wander. Returning attention is part of the practice.</li>
+        </ul>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">RO-DBT distinction</div><div class="section-title">Related foundation, different emphasis</div></div><div class="card-body copy">
+        <p>RO-DBT also teaches mindfulness, but it modifies the standard DBT framework to emphasize openness, fallibility, social signaling, and willingness to learn. Later RO-DBT lessons use names such as <strong>Observe Openly</strong>, <strong>Describe with Integrity</strong>, and <strong>Participate Without Planning</strong>, and add attitudes such as one-mindful awareness and humility.</p>
+        <p>This course will not treat the two systems as identical. For now, the important shared foundation is simple: attention can be trained, experience can be noticed before it is explained, and a person can return attention to the present when the mind wanders.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Technique</div><div class="section-title">A two-minute attention anchor</div></div><div class="card-body copy">
+        <ol>
+          <li>Choose one neutral anchor: the sensation of breathing, contact of the feet with the floor, or sounds in the room.</li>
+          <li>Place attention on that anchor for a short period.</li>
+          <li>When attention moves to a thought, memory, plan, sensation, or sound, notice that it moved.</li>
+          <li>Without criticizing yourself, bring attention back to the chosen anchor.</li>
+          <li>Repeat every time attention wanders.</li>
+        </ol>
+        <div class="callout key"><strong>The repetition is the training.</strong> Wandering is not failure. Noticing the wandering and returning is the skill being strengthened.</div>
+      </div></section>
+    `,
+    practice:{
+      intro:'Complete three short attention-anchor practices. One to three minutes is enough for the first pass. The goal is to notice attention moving and practice returning it.',
+      records:3,
+      fields:[
+        {key:'anchor',label:'What did you use as the attention anchor?',type:'select',options:['','Breathing','Feet/body contact','Sounds','Another neutral sensation']},
+        {key:'wander',label:'What most often pulled attention away?',hint:'Examples: planning, a sound, a thought, an emotion, physical discomfort, or another sensation.',type:'textarea'},
+        {key:'return',label:'What did you notice when you returned attention?',type:'textarea',optional:true}
+      ]
+    },
+    quiz:[
+      {q:'What is the main purpose of the attention-anchor practice?',options:['Keep the mind completely blank','Notice when attention wanders and practice returning it','Become relaxed as quickly as possible'],correct:1,explain:'Mindfulness practice trains noticing and returning. A wandering mind is expected.'},
+      {q:'Does mindfulness require agreeing with a thought or another person?',options:['Yes','No'],correct:1,explain:'Observing an experience is not the same as endorsing it.'},
+      {q:'If attention wanders ten times and is returned ten times, did the practice fail?',options:['Yes','No'],correct:1,explain:'Each return is part of the practice.'}
+    ],
+    resources:[
+      {title:'Jennifer May, PhD — DBT Mindfulness Intro',url:'https://www.youtube.com/watch?v=AjKi81uqHK0',note:'Free clinician-created introduction to mindfulness and why it is useful.'},
+      {title:'DBT Mindfulness Skills Training resource index',url:'https://jamesfitzgeraldtherapy.com/dbt-mindfulness-skills-training/',note:'Free index of mindfulness lessons and Jennifer May videos.'}
+    ],
+    refs:'Standard DBT: Mindfulness Handouts 1-5 in Linehan. RO-DBT comparison: Skills Manual Lessons 12-14. This lesson provides a common attentional foundation without treating the two models as interchangeable.'
+  },
+  {
+    id:'F2',
+    section:'foundation',
+    title:'Observe & Describe',
+    subtitle:'Practice separating what is directly noticed from the explanation or interpretation added afterward.',
+    badges:['Standard DBT foundation','RO-DBT bridge'],
+    body:`
+      <section class="card"><div class="card-header"><div class="section-kicker">Observe</div><div class="section-title">Notice before explaining</div></div><div class="card-body copy">
+        <p>In standard DBT, <strong>Observe</strong> means intentionally noticing present experience. The target can be external, such as a sound or facial expression, or internal, such as a physical sensation, thought, emotion, image, or urge.</p>
+        <p>Observation is deliberately simple. “My jaw tightened” is an observation. “My jaw tightened because this person is disrespecting me” adds an interpretation. The interpretation may eventually be useful, but it is a different mental event.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Describe</div><div class="section-title">Put observations into words</div></div><div class="card-body copy">
+        <p><strong>Describe</strong> means putting what was observed into words without automatically treating the description as an absolute fact about motives, causes, or meaning.</p>
+        <div class="grid-2">
+          <div class="mini-card"><div class="mini-title">Closer to observation</div>“The person looked away while I was speaking.”<br>“I noticed a thought that I was being ignored.”<br>“I felt heat in my face.”</div>
+          <div class="mini-card"><div class="mini-title">Adds interpretation</div>“The person looked away because they do not care.”<br>“They were deliberately ignoring me.”<br>“My anger proves they were unfair.”</div>
+        </div>
+        <p>The goal is not to eliminate interpretation. Human beings constantly interpret. The skill is learning to recognize the difference.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">RO-DBT bridge</div><div class="section-title">Describe with Integrity</div></div><div class="card-body copy">
+        <p>RO-DBT later teaches a related practice called <strong>Describe with Integrity</strong>. Its Awareness Continuum asks the learner to take ownership of inner experience by identifying sensations, emotions, images, or thoughts without immediately explaining, rationalizing, or defending them.</p>
+        <p>The conflict value is straightforward: “I am noticing anger” leaves more room for examination than “You made me angry because you are trying to provoke me.” The first statement identifies experience. The second bundles experience together with a causal interpretation.</p>
+        <div class="callout key"><strong>Course principle:</strong> first separate observation from interpretation. Later lessons will teach how to evaluate interpretations and communicate effectively.</div>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Practice drill</div><div class="section-title">Three layers</div></div><div class="card-body copy">
+        <p>Use an ordinary event and identify three layers:</p>
+        <ol><li><strong>External observation:</strong> what could a camera or microphone have captured?</li><li><strong>Internal observation:</strong> what sensation, thought, emotion, image, or urge appeared?</li><li><strong>Interpretation:</strong> what meaning did the mind add?</li></ol>
+        <p>All three can matter. The training is learning not to confuse them.</p>
+      </div></section>
+    `,
+    practice:{
+      intro:'Use three ordinary experiences. They can be pleasant, unpleasant, social, or nonsocial. Separate direct observation from the interpretation that followed.',
+      records:3,
+      fields:[
+        {key:'event',label:'What happened externally?',hint:'Describe what a camera or microphone could have captured.',type:'textarea'},
+        {key:'internal',label:'What did you notice internally?',hint:'A sensation, thought, emotion, image, or urge.',type:'textarea'},
+        {key:'meaning',label:'What interpretation or meaning did your mind add?',type:'textarea'},
+        {key:'difference',label:'What is the difference between the observation and the interpretation?',type:'textarea',optional:true}
+      ]
+    },
+    quiz:[
+      {q:'Which statement is closest to a direct observation?',options:['“She does not respect me.”','“She looked at her phone while I was speaking.”','“She wanted me to feel unimportant.”'],correct:1,explain:'The phone behavior is directly observable. Respect and motive are interpretations.'},
+      {q:'Is an interpretation automatically wrong because it is an interpretation?',options:['Yes','No'],correct:1,explain:'The point is to distinguish it from direct observation, not automatically reject it.'},
+      {q:'Which statement best separates inner experience from blame?',options:['“You made me furious.”','“I notice anger and an urge to answer immediately.”'],correct:1,explain:'The second identifies internal experience without automatically assigning causation.'}
+    ],
+    resources:[
+      {title:'Jennifer May, PhD — DBT Mindfulness What Skills',url:'https://www.youtube.com/watch?v=TlrIi3V50Qs',note:'Free review of Observe, Describe, and Participate.'},
+      {title:'DBT Mindfulness Skills Training resource index',url:'https://jamesfitzgeraldtherapy.com/dbt-mindfulness-skills-training/',note:'Free supporting material for the standard DBT mindfulness module.'}
+    ],
+    refs:'Standard DBT: Mindfulness Handouts 4-4c. RO-DBT bridge: Handout 12.1, Describe with Integrity / Awareness Continuum. Course examples are paraphrased and expanded for stand-alone instruction.'
+  },
+  {
+    id:'F3',
+    section:'foundation',
+    title:'One-Mindful Attention',
+    subtitle:'Learn to notice when attention leaves the current task and practice bringing it back.',
+    badges:['Standard DBT foundation','RO-DBT bridge'],
+    body:`
+      <section class="card"><div class="card-header"><div class="section-kicker">The problem of divided attention</div><div class="section-title">Being physically present is not the same as attending</div></div><div class="card-body copy">
+        <p>Standard DBT's <strong>one-mindful</strong> skill means doing one thing at a time and bringing attention back to the current activity when it wanders. This does not require perfect concentration. It requires repeatedly noticing where attention went.</p>
+        <p>In conversation, divided attention often takes the form of listening to words while simultaneously planning a reply, reviewing evidence, rehearsing a defense, checking a phone, or mentally moving to another topic. The body may remain in the conversation while attention has partly left it.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Attention is trainable</div><div class="section-title">Notice → name → return</div></div><div class="card-body copy">
+        <div class="grid-3">
+          <div class="mini-card"><div class="mini-title">Notice</div>Recognize that attention has moved away from the chosen task.</div>
+          <div class="mini-card"><div class="mini-title">Name</div>Use a brief label if helpful: “planning,” “judging,” “remembering,” “answer-building,” “worrying.”</div>
+          <div class="mini-card"><div class="mini-title">Return</div>Bring attention back to the present task without arguing with the distraction.</div>
+        </div>
+        <p>This is the same basic repetition practiced in F1, now applied to ordinary activities and conversations.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">RO-DBT bridge</div><div class="section-title">With one-mindful awareness</div></div><div class="card-body copy">
+        <p>RO-DBT later teaches <strong>with one-mindful awareness</strong>: intentionally turning attention toward the present moment while recognizing that complete awareness is impossible. RO-DBT also connects this skill with slowing down rather than compulsively speeding up, multitasking, or moving immediately to the next goal.</p>
+        <p>For conflict training, that emphasis is useful because urgency itself can become an attentional cue. Feeling that a statement must be answered immediately can pull attention away from receiving new information.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Everyday practice</div><div class="section-title">Use ordinary tasks first</div></div><div class="card-body copy">
+        <p>Choose a routine activity such as making coffee, showering, walking from one room to another, washing dishes, or listening to a short piece of music. Do only that activity for a few minutes. Each time attention moves elsewhere, notice it and return.</p>
+        <p>Training on neutral activities lowers the difficulty. The same attentional move will later be used when the distraction is emotionally charged.</p>
+      </div></section>
+    `,
+    practice:{
+      intro:'Complete three short one-mindful practices during ordinary activities. The target is not perfect concentration; it is noticing distraction and returning to the chosen activity.',
+      records:3,
+      fields:[
+        {key:'activity',label:'What activity did you choose?',type:'textarea'},
+        {key:'pull',label:'What most often pulled attention away?',type:'textarea'},
+        {key:'label',label:'What brief label, if any, helped you notice the distraction?',hint:'Examples: planning, worrying, judging, remembering, answer-building.',type:'textarea',optional:true},
+        {key:'return',label:'What was it like to bring attention back?',type:'textarea',optional:true}
+      ]
+    },
+    quiz:[
+      {q:'What does one-mindful practice require?',options:['Never becoming distracted','Doing one thing at a time and returning when attention wanders','Ignoring all thoughts and emotions'],correct:1,explain:'Attention wandering is expected. The skill is repeated return.'},
+      {q:'During a conversation, mentally rehearsing a reply while the other person is still speaking is an example of:',options:['One-mindful attention','Divided attention','Perfect listening'],correct:1,explain:'Part of attention has shifted from receiving the current message to preparing a response.'},
+      {q:'Does one-mindful awareness mean a person can become completely aware of everything happening?',options:['Yes','No'],correct:1,explain:'Both practical mindfulness and RO-DBT recognize limits on awareness.'}
+    ],
+    resources:[
+      {title:'Jennifer May, PhD — DBT Mindfulness How Skills',url:'https://www.youtube.com/watch?v=1vWsgg9JiDo',note:'Free review of nonjudgmentally, one-mindfully, and effectively.'},
+      {title:'DBT Mindfulness Skills Training resource index',url:'https://jamesfitzgeraldtherapy.com/dbt-mindfulness-skills-training/',note:'Free supporting mindfulness material.'}
+    ],
+    refs:'Standard DBT: Mindfulness Handouts 5 and 5b. RO-DBT bridge: Handout 14.1 and Worksheet 14.A on one-mindful awareness.'
+  },
+  {
+    id:'F4',
+    section:'foundation',
+    title:'Mindfulness in Interaction',
+    subtitle:'Apply present-moment attention while another person is speaking without yet trying to solve the interaction.',
+    badges:['Integrated foundation','Interpersonal application'],
+    body:`
+      <section class="card"><div class="card-header"><div class="section-kicker">From solo practice to interaction</div><div class="section-title">Two streams of information are present</div></div><div class="card-body copy">
+        <p>Interpersonal mindfulness requires attention to both <strong>what is happening in the interaction</strong> and <strong>what is happening inside the listener</strong>. The challenge is that internal reactions can become so strong that they replace attention to the other person's actual message.</p>
+        <div class="grid-2">
+          <div class="mini-card"><div class="mini-title">External stream</div>Words, tone, pacing, facial expression, gestures, pauses, and other directly observable behavior.</div>
+          <div class="mini-card"><div class="mini-title">Internal stream</div>Thoughts, sensations, emotions, images, urges, judgments, memories, and plans.</div>
+        </div>
+        <p>The goal is not to monitor everything at once. The goal is to notice when the internal stream begins to crowd out the external one.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">A common attentional shift</div><div class="section-title">Listening → answer-building</div></div><div class="card-body copy">
+        <p>One of the most important interaction cues is the moment attention moves from trying to understand the message to preparing what to say next. That shift can happen in friendly conversation, meetings, feedback, disagreements, or conflict.</p>
+        <div class="callout key"><strong>Retrieval question:</strong> Am I trying to understand what this person means, or am I already preparing my answer?</div>
+        <p>This question does not demand agreement. It identifies the current task being performed by attention.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Observation versus inference</div><div class="section-title">Do not confuse mind-reading with listening</div></div><div class="card-body copy">
+        <p>During interaction, people naturally make inferences about motives, feelings, and intentions. Mindfulness adds a useful check: <strong>What did I actually observe, and what did I infer?</strong></p>
+        <div class="grid-2">
+          <div class="mini-card"><div class="mini-title">Observed</div>“The person spoke more loudly.”<br>“There was a long pause.”<br>“They said they were frustrated.”</div>
+          <div class="mini-card"><div class="mini-title">Inferred</div>“They are trying to intimidate me.”<br>“The pause means they do not care.”<br>“They are exaggerating.”</div>
+        </div>
+        <p>The inference may later prove accurate or inaccurate. Mindfulness simply keeps the categories separate.</p>
+      </div></section>
+
+      <section class="card"><div class="card-header"><div class="section-kicker">Low-stakes interaction drill</div><div class="section-title">Attend, notice, return</div></div><div class="card-body copy">
+        <ol>
+          <li>Choose an ordinary conversation that is not highly charged.</li>
+          <li>Give the speaker your attention for a short period without multitasking.</li>
+          <li>Notice when attention moves into planning, judgment, memory, or self-focus.</li>
+          <li>Briefly label the shift internally.</li>
+          <li>Return attention to the speaker's current words.</li>
+        </ol>
+        <p>Module 2 will later teach the formal standard DBT skill <strong>Mindfulness of Others</strong> in depth. This foundation only establishes the attentional behavior needed before that lesson.</p>
+      </div></section>
+    `,
+    practice:{
+      intro:'Use three ordinary, low-stakes conversations. Practice noticing when attention leaves the speaker and bringing it back. Do not try to evaluate the whole relationship or solve a disagreement.',
+      records:3,
+      fields:[
+        {key:'context',label:'What was the general interaction?',hint:'Keep the description brief and non-identifying if preferred.',type:'textarea'},
+        {key:'pull',label:'What pulled your attention away from the speaker?',type:'textarea'},
+        {key:'observed',label:'What did you directly observe when you returned attention?',type:'textarea'},
+        {key:'inference',label:'What interpretation or inference did you notice?',type:'textarea',optional:true},
+        {key:'return',label:'Were you able to return attention to the current interaction?',type:'select',options:['','Yes','Partly','Not yet']}
+      ]
+    },
+    quiz:[
+      {q:'Which statement best describes interpersonal mindfulness?',options:['Analyze the other person continuously','Attend to the interaction while also noticing when internal reactions pull attention away','Agree with the other person so the conversation stays calm'],correct:1,explain:'The skill concerns attention and awareness, not agreement or constant analysis.'},
+      {q:'“They raised their voice because they wanted to dominate me” contains:',options:['Only direct observation','An observation plus an inference','No information at all'],correct:1,explain:'Raised voice is observable; the motive is inferred.'},
+      {q:'What should happen when you notice that you are preparing your answer while the other person is still speaking?',options:['Criticize yourself for failing','Return attention to the current message','Immediately give the prepared answer'],correct:1,explain:'The practice is to notice the shift and return.'}
+    ],
+    resources:[
+      {title:'Jennifer May, PhD — DBT Mindfulness What Skills',url:'https://www.youtube.com/watch?v=TlrIi3V50Qs',note:'Review of observing, describing, and participating.'},
+      {title:'Jennifer May, PhD — DBT Mindfulness How Skills',url:'https://www.youtube.com/watch?v=1vWsgg9JiDo',note:'Review of one-mindfulness and effectiveness.'}
+    ],
+    refs:'Standard DBT mindfulness principles provide the primary foundation. RO-DBT later adds Describe with Integrity and one-mindful awareness. Formal DBT Mindfulness of Others is intentionally deferred to Module 2.'
+  }
+];
+
+
 const LESSONS = [
   {
+    section:'module1',
     id: '1.1',
     title: 'Detecting Activation',
     subtitle: 'Learn to notice meaningful shifts in cue, body, attention, emotion, and social behavior.',
@@ -95,13 +340,12 @@ const LESSONS = [
       {q:'Which is the best first description?', options:['“My shoulders tightened.”','“This proves the other person is attacking me.”','“I am definitely in the wrong.”'], correct:0, explain:'Start with observation before interpretation.'}
     ],
     resources: [
-      {title:'Jennifer May, PhD — RO-DBT Lesson 2: Understanding Emotions', url:'https://www.youtube.com/watch?v=fkEJXu-SxLw', note:'Free clinician-created explanation of the five categories of emotionally relevant cues.'},
-      {title:'Official RO-DBT Skills Class — Lesson 2', url:'https://rodbtskillsclasses.vhx.tv/products/lesson-2-understanding-emotions', note:'Optional paid pre-recorded RO-DBT skills class.'},
-      {title:'RO-DBT Skills Training Manual — publisher page', url:'https://www.newharbinger.com/9781626259317/the-skills-training-manual-for-radically-open-dialectical-behavior-therapy/', note:'Primary written source for Handouts 2.1-2.2 and Worksheet 2.A.'}
+      {title:'Jennifer May, PhD — RO-DBT Lesson 2: Understanding Emotions', url:'https://www.youtube.com/watch?v=fkEJXu-SxLw', note:'Free clinician-created explanation of the five categories of emotionally relevant cues.'}
     ],
     refs:'RO-DBT Skills Training Manual: Handout 2.1, Handout 2.2, Worksheet 2.A. Course language is paraphrased and expanded for instruction.'
   },
   {
+    section:'module1',
     id: '1.2',
     title: 'Recognizing the Defensive Shift',
     subtitle: 'Learn the difference between having a position and becoming automatically closed to new information.',
@@ -167,12 +411,12 @@ const LESSONS = [
       {q:'Can a person be factually correct while responding from a rigid or defensive state?',options:['Yes','No'],correct:0,explain:'Content accuracy and response flexibility are separate questions.'}
     ],
     resources:[
-      {title:'Official RO-DBT Skills Classes — full lesson catalog',url:'https://rodbtskillsclasses.vhx.tv/products',note:'Lesson 11 is Mindfulness Training Part 1 and includes Fixed Mind material.'},
-      {title:'RO-DBT Skills Training Manual — publisher page',url:'https://www.newharbinger.com/9781626259317/the-skills-training-manual-for-radically-open-dialectical-behavior-therapy/',note:'Primary written source for Handouts 11.1-11.4 and Worksheet 11.A.'}
+      {title:'Jennifer May, PhD — YouTube channel',url:'https://www.youtube.com/@jennifermayph.d.2761',note:'Clinician-created RO-DBT and standard DBT teaching. Use the RO-DBT mindfulness / states-of-mind lessons as supplemental instruction when available.'}
     ],
     refs:'RO-DBT Skills Training Manual: Handouts 11.1-11.4 and Worksheet 11.A. Introduced here because the material directly supports conflict-cue detection.'
   },
   {
+    section:'module1',
     id:'1.3',
     title:'STOP — Interrupt the Next Behavior',
     subtitle:'Learn a standard DBT crisis-survival skill as a brief behavioral brake.',
@@ -253,6 +497,7 @@ const LESSONS = [
     refs:'Standard DBT: Distress Tolerance Handout 4 and Worksheets 2/2a in Linehan. Course application to conflict is an educational integration.'
   },
   {
+    section:'module1',
     id:'1.4',
     title:'Downshift Without Disengaging',
     subtitle:'Use body-based regulation and social signaling to regain behavioral choice while staying present.',
@@ -317,7 +562,6 @@ const LESSONS = [
       {q:'If anger remains but speech slows and interruption stops, has regulation necessarily failed?',options:['Yes','No'],correct:1,explain:'Behavioral choice can improve while emotion remains present.'}
     ],
     resources:[
-      {title:'Official RO-DBT Skills Class — Lesson 3: Activating Social Safety',url:'https://rodbtskillsclasses.vhx.tv/products/lesson-3-activating-social-safety',note:'Optional paid RO-DBT lesson on the social-safety system and Big Three + 1.'},
       {title:'Jennifer May, PhD — TIPP Skills video',url:'https://www.youtube.com/watch?v=sd0OK8K0HDg',note:'Clinician-created standard DBT instruction covering TIP/TIPP skills.'},
       {title:'DBT Distress Tolerance resource index',url:'https://jamesfitzgeraldtherapy.com/dbt-distress-tolerance-skills-training/',note:'Includes STOP, TIPP, and paired muscle relaxation resources.'},
       {title:'Official Guilford DBT supplementary materials',url:'https://www.guilford.com/dbt-manual',note:'Official DBT handout/worksheet resource information.'}
@@ -325,6 +569,7 @@ const LESSONS = [
     refs:'RO-DBT Skills Training Manual: Handout 3.1 and later Handout 17.1. Standard DBT: Distress Tolerance Handouts 6 and 6b. “Release → Exhale → Soften → Slow” is a custom course integration.'
   },
   {
+    section:'module1',
     id:'1.5',
     title:'The Micro-Pause',
     subtitle:'Combine detection, STOP, and downshifting into a short sequence that can be used while remaining in the interaction.',
@@ -408,6 +653,16 @@ const LESSONS = [
 let state = structuredClone(DEFAULT_STATE);
 let db = null;
 let saveTimer = null;
+let unlocked = false;
+let pinMode = 'unlock';
+let pinBuffer = '';
+let firstPin = '';
+let pinMessage = '';
+let inactivityTimer = null;
+let hiddenAt = null;
+let practiceTimer = { interval:null, id:null, remaining:0, total:0, running:false };
+
+const ALL_LESSONS = [...FOUNDATION_LESSONS, ...LESSONS];
 
 function openDb(){
   return new Promise((resolve,reject)=>{
@@ -430,6 +685,17 @@ function loadState(){
     }catch(_){ resolve(structuredClone(DEFAULT_STATE)); }
   });
 }
+function normalizeState(saved){
+  const s={...structuredClone(DEFAULT_STATE), ...(saved||{})};
+  s.completed={...(saved?.completed||{})};
+  s.fields={...(saved?.fields||{})};
+  s.quizzes={...(saved?.quizzes||{})};
+  s.security={...structuredClone(DEFAULT_STATE.security), ...(saved?.security||{})};
+  const validRoutes=['course','practice','resources','settings','lesson'];
+  if(!validRoutes.includes(s.route)) s.route='course';
+  if(!ALL_LESSONS.some(l=>l.id===s.currentLesson)) s.currentLesson='F1';
+  return s;
+}
 function persist(){
   state.updatedAt=new Date().toISOString();
   clearTimeout(saveTimer);
@@ -440,67 +706,88 @@ function persist(){
     }catch(_){ }
   },180);
 }
+function immediateSave(){
+  state.updatedAt=new Date().toISOString();
+  return new Promise(resolve=>{
+    try{
+      const tx=db.transaction(STORE,'readwrite');
+      tx.objectStore(STORE).put(state,STATE_KEY);
+      tx.oncomplete=resolve;
+      tx.onerror=resolve;
+    }catch(_){ resolve(); }
+  });
+}
 function escapeHtml(s=''){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-function lessonById(id){ return LESSONS.find(l=>l.id===id) || LESSONS[0]; }
-function completedCount(){ return LESSONS.filter(l=>state.completed[l.id]).length; }
-function progressPercent(){ return Math.round((completedCount()/LESSONS.length)*100); }
-function renderShell(content,active='home'){
+function lessonById(id){ return ALL_LESSONS.find(l=>l.id===id) || ALL_LESSONS[0]; }
+function sectionLessons(section){ return section==='foundation' ? FOUNDATION_LESSONS : LESSONS; }
+function sectionName(section){ return section==='foundation' ? 'Foundation — Mindfulness & Attention' : 'Module 1 — Catch & Brake'; }
+function completedIn(items){ return items.filter(l=>state.completed[l.id]).length; }
+function completedCount(){ return completedIn(ALL_LESSONS); }
+function percent(items){ return items.length ? Math.round((completedIn(items)/items.length)*100) : 0; }
+
+function renderShell(content,active='course'){
   const count=completedCount();
   return `<div class="app-shell">
-    <header class="topbar"><div class="topbar-row"><div class="brand-wrap"><div class="brand">Personal Conflict Training</div><div class="brand-sub">Module 1 · Catch & Brake · v${VERSION}</div></div><div class="status-pill">${count}/${LESSONS.length} complete</div></div></header>
+    <header class="topbar"><div class="topbar-row"><div class="brand-wrap"><div class="brand">Personal Conflict Training</div><div class="brand-sub">Mindfulness Foundation + Module 1 · v${VERSION}</div></div><div class="status-pill">${count}/${ALL_LESSONS.length} complete</div></div></header>
     <main class="content" id="main-content">${content}</main>
     <nav class="bottom-nav" aria-label="Primary"><div class="bottom-nav-inner">
-      ${navBtn('home','⌂','Home',active)}${navBtn('module','≡','Module 1',active)}${navBtn('resources','↗','Resources',active)}${navBtn('about','i','About',active)}
+      ${navBtn('course','▤','Course',active)}${navBtn('practice','◎','Practice',active)}${navBtn('resources','↗','Resources',active)}${navBtn('settings','⚙','Settings',active)}
     </div></nav>
   </div>`;
 }
 function navBtn(route,icon,label,active){ return `<button class="nav-btn ${active===route?'active':''}" data-route="${route}" type="button"><span class="nav-icon">${icon}</span>${label}</button>`; }
-function renderHome(){
-  const next=LESSONS.find(l=>!state.completed[l.id]) || LESSONS[0];
-  const pct=progressPercent();
-  return renderShell(`
-    <h1 class="page-title">Core Personal Training</h1>
-    <p class="page-lede">A stand-alone, source-grounded skills course for improving conflict awareness and response flexibility. The course assumes no prior knowledge of RO-DBT, standard DBT, or couples-therapy concepts.</p>
-    <section class="card"><div class="card-header"><div class="section-kicker">Module 1</div><div class="section-title">Catch & Brake</div></div><div class="card-body copy">
-      <p>Build the first capability needed in difficult interactions: notice that the process has changed, interrupt automatic escalation, and downshift enough to regain behavioral choice.</p>
-      <div class="progress-wrap"><div class="progress-track"><div class="progress-bar" style="width:${pct}%"></div></div><div class="progress-meta"><span>${completedCount()} of ${LESSONS.length} lessons complete</span><span>${pct}%</span></div></div>
-      <div class="btn-row" style="margin-top:12px"><button class="btn primary" data-lesson="${next.id}" type="button">${completedCount()?`Continue ${next.id}`:'Start Module 1'}</button><button class="btn soft" data-route="module" type="button">View lessons</button></div>
-    </div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Course design</div><div class="section-title">How this training works</div></div><div class="card-body copy">
-      <ul><li>Each lesson teaches concepts in plain language before asking the learner to use them.</li><li>Practice worksheets are built into the lesson and save locally on this device.</li><li>Manual terminology is defined before it is used.</li><li>Examples include general everyday situations as well as conflict examples.</li><li>Source-based content is distinguished from custom integrated exercises.</li></ul>
-      <div class="notice">This is educational skills training and does not replace treatment. It does not diagnose the learner or another person.</div>
-    </div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Module 1 lessons</div></div><div class="card-body"><div class="lesson-list">${lessonRows()}</div></div></section>
-  `,'home');
+function lessonRows(items){
+  return items.map(l=>`<button class="lesson-row ${state.completed[l.id]?'complete':''}" data-lesson="${l.id}" type="button"><div><div class="lesson-row-title">${escapeHtml(l.id)} — ${escapeHtml(l.title)}</div><div class="lesson-row-sub">${escapeHtml(l.subtitle)}</div></div><div class="checkmark">✓</div></button>`).join('');
 }
-function lessonRows(){ return LESSONS.map(l=>`<button class="lesson-row ${state.completed[l.id]?'complete':''}" data-lesson="${l.id}" type="button"><div><div class="lesson-row-title">${l.id} — ${escapeHtml(l.title)}</div><div class="lesson-row-sub">${escapeHtml(l.subtitle)}</div></div><div class="checkmark">✓</div></button>`).join(''); }
-function renderModule(){
-  const pct=progressPercent();
+function sectionCard(section,items,description){
+  const pct=percent(items);
+  return `<section class="card"><div class="card-header"><div class="section-kicker">${section==='foundation'?'Foundation':'Module 1'}</div><div class="section-title">${escapeHtml(sectionName(section).replace(/^.*?—\s*/,''))}</div></div><div class="card-body copy">
+    <p>${escapeHtml(description)}</p>
+    <div class="progress-wrap"><div class="progress-track"><div class="progress-bar" style="width:${pct}%"></div></div><div class="progress-meta"><span>${completedIn(items)} of ${items.length} lessons complete</span><span>${pct}%</span></div></div>
+    <div class="lesson-list" style="margin-top:12px">${lessonRows(items)}</div>
+  </div></section>`;
+}
+function renderCourse(){
+  const next=ALL_LESSONS.find(l=>!state.completed[l.id]) || ALL_LESSONS[0];
+  const totalPct=percent(ALL_LESSONS);
   return renderShell(`
-    <h1 class="page-title">Module 1 — Catch & Brake</h1><p class="page-lede">Five lessons build from general detection to a brief integrated micro-pause. Work in order on the first pass; later review can be selective.</p>
-    <section class="card"><div class="card-body"><div class="progress-wrap"><div class="progress-track"><div class="progress-bar" style="width:${pct}%"></div></div><div class="progress-meta"><span>${completedCount()} of ${LESSONS.length} complete</span><span>${pct}%</span></div></div></div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Lessons</div></div><div class="card-body"><div class="lesson-list">${lessonRows()}</div></div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Module outcome</div></div><div class="card-body copy"><p>By the end of Module 1, the learner should be able to notice activation at an early or late point, recognize a defensive shift, use STOP, perform a brief physiological/social downshift, and combine those pieces into a micro-pause.</p><p>Completion means the material has been learned and practiced. It does not imply mastery during the most difficult real-world conflicts.</p></div></section>
-  `,'module');
+    <h1 class="page-title">Core Conflict Skills Training</h1>
+    <p class="page-lede">A stand-alone, source-grounded course that assumes no prior knowledge of RO-DBT, standard DBT, mindfulness, or relationship-skills terminology.</p>
+    <section class="card"><div class="card-header"><div class="section-kicker">Course progress</div><div class="section-title">Foundation + first conflict module</div></div><div class="card-body copy">
+      <p>Start with the mindfulness foundation. It teaches the attentional skills used throughout the conflict modules. Module 1 then applies that attention to activation, interruption, and downshifting.</p>
+      <div class="progress-wrap"><div class="progress-track"><div class="progress-bar" style="width:${totalPct}%"></div></div><div class="progress-meta"><span>${completedCount()} of ${ALL_LESSONS.length} lessons complete</span><span>${totalPct}%</span></div></div>
+      <div class="btn-row" style="margin-top:12px"><button class="btn primary" data-lesson="${next.id}" type="button">${completedCount()?`Continue ${escapeHtml(next.id)}`:'Start Foundation'}</button></div>
+    </div></section>
+    ${sectionCard('foundation',FOUNDATION_LESSONS,'Train present-moment attention, observation, description, one-mindful focus, and basic interpersonal attention before using those skills under conflict pressure.')}
+    ${sectionCard('module1',LESSONS,'Detect activation wherever it becomes visible, recognize defensive shifts, use STOP, downshift without disengaging, and combine the skills into a micro-pause.')}
+    <section class="card"><div class="card-header"><div class="section-kicker">Course design</div><div class="section-title">How the training is built</div></div><div class="card-body copy">
+      <ul><li>Concepts are taught before the learner is asked to use them.</li><li>Practice worksheets are embedded in each lesson and save locally on this device.</li><li>Manual terminology is defined before it is used.</li><li>Examples include ordinary daily situations as well as interpersonal conflict.</li><li>Standard DBT and RO-DBT are labeled separately rather than blended into one model.</li><li>Custom integrations are identified as course adaptations.</li></ul>
+      <div class="notice">This is educational skills training and does not replace treatment or diagnose the learner or another person.</div>
+    </div></section>
+  `,'course');
 }
 function renderLesson(id){
-  const l=lessonById(id); state.currentLesson=l.id; state.route='lesson'; persist();
+  const l=lessonById(id);
+  state.currentLesson=l.id;
+  state.route='lesson';
+  persist();
+  const section=l.section==='foundation'?'foundation':'module1';
   const body=`
-    <button type="button" class="back-btn" data-route="module">← Back to Module 1</button>
-    <div class="breadcrumb"><span>Module 1</span><span>›</span><span>Lesson ${l.id}</span></div>
-    <h1 class="page-title">${l.id} — ${escapeHtml(l.title)}</h1>
+    <button type="button" class="back-btn" data-route="course">← Back to Course</button>
+    <div class="breadcrumb"><span>${escapeHtml(sectionName(section))}</span><span>›</span><span>${escapeHtml(l.id)}</span></div>
+    <h1 class="page-title">${escapeHtml(l.id)} — ${escapeHtml(l.title)}</h1>
     <p class="page-lede">${escapeHtml(l.subtitle)}</p>
     <div class="badges">${l.badges.map(b=>`<span class="badge ${b.startsWith('RO-')?'ro':b.startsWith('Standard')?'dbt':b.startsWith('Custom')||b.includes('Integrated')?'custom':''}">${escapeHtml(b)}</span>`).join('')}</div>
     ${l.body}
     ${practiceSection(l)}
     ${quizSection(l)}
     ${resourcesSection(l)}
-    <section class="card"><div class="card-header"><div class="section-kicker">Source map</div><div class="section-title">Where this lesson comes from</div></div><div class="card-body copy"><p>${escapeHtml(l.refs)}</p></div></section>
+    <section class="card"><div class="card-header"><div class="section-kicker">Source map</div><div class="section-title">Where this lesson comes from</div></div><div class="card-body copy"><p>${escapeHtml(l.refs)}</p><p class="subtle">Manual references are provided by title and handout/worksheet number so the learner can use a copy they already have. This app does not link to a purchase page for the RO-DBT manual.</p></div></section>
     <section class="card"><div class="card-header"><div class="section-kicker">Completion</div></div><div class="card-body">
-      <label class="complete-box"><input type="checkbox" data-complete="${l.id}" ${state.completed[l.id]?'checked':''}><span><strong>Mark Lesson ${l.id} complete</strong><br><span class="subtle">Use this after reviewing the lesson and completing the practice you intend to do for the first pass.</span></span></label>
+      <label class="complete-box"><input type="checkbox" data-complete="${l.id}" ${state.completed[l.id]?'checked':''}><span><strong>Mark ${escapeHtml(l.id)} complete</strong><br><span class="subtle">Use this after reviewing the teaching, practice worksheet, and knowledge check for the first pass.</span></span></label>
       <div class="btn-row" style="margin-top:12px">${lessonNavButtons(l.id)}</div>
     </div></section>`;
-  return renderShell(body,'module');
+  return renderShell(body,'course');
 }
 function practiceSection(l){
   const p=l.practice;
@@ -508,14 +795,14 @@ function practiceSection(l){
   for(let i=1;i<=p.records;i++){
     records+=`<div class="practice-card"><div class="practice-head">Practice Record ${i}</div><div class="practice-body">${p.fields.map(f=>practiceField(l.id,i,f)).join('')}<div class="save-note" data-save-note>Saved automatically on this device.</div></div></div>`;
   }
-  return `<section class="card"><div class="card-header"><div class="section-kicker">Practice worksheet</div><div class="section-title">Record the experience while the lesson is fresh</div></div><div class="card-body copy"><p>${escapeHtml(p.intro)}</p>${records}</div></section>`;
+  return `<section class="card"><div class="card-header"><div class="section-kicker">Practice worksheet</div><div class="section-title">Record the practice while the lesson is fresh</div></div><div class="card-body copy"><p>${escapeHtml(p.intro)}</p>${records}</div></section>`;
 }
 function fieldKey(lesson,record,key){ return `${lesson}.practice.${record}.${key}`; }
 function practiceField(lesson,record,f){
   const base=fieldKey(lesson,record,f.key);
   if(f.type==='textarea') return `<div class="field"><label for="${base}">${escapeHtml(f.label)}${f.optional?' (optional)':''}</label>${f.hint?`<div class="hint">${escapeHtml(f.hint)}</div>`:''}<textarea id="${base}" data-field="${base}"></textarea></div>`;
   if(f.type==='select') return `<div class="field"><label for="${base}">${escapeHtml(f.label)}</label>${f.hint?`<div class="hint">${escapeHtml(f.hint)}</div>`:''}<select id="${base}" data-field="${base}">${f.options.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(o||'Select…')}</option>`).join('')}</select></div>`;
-  if(f.type==='checks') return `<div class="field"><label>${escapeHtml(f.label)}</label><div class="choice-grid two">${f.options.map((o,j)=>`<label class="choice"><input type="checkbox" data-field-check="${base}" value="${escapeHtml(o)}"><span>${escapeHtml(o)}</span></label>`).join('')}</div></div>`;
+  if(f.type==='checks') return `<div class="field"><label>${escapeHtml(f.label)}</label><div class="choice-grid two">${f.options.map(o=>`<label class="choice"><input type="checkbox" data-field-check="${base}" value="${escapeHtml(o)}"><span>${escapeHtml(o)}</span></label>`).join('')}</div></div>`;
   return '';
 }
 function quizSection(l){
@@ -525,76 +812,135 @@ function quizSection(l){
   }).join('')}</div></section>`;
 }
 function resourcesSection(l){
-  return `<section class="card"><div class="card-header"><div class="section-kicker">External learning</div><div class="section-title">Optional and primary-source resources</div></div><div class="card-body">${l.resources.map(r=>`<a class="link-card" href="${r.url}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(r.title)} ↗</strong><span>${escapeHtml(r.note)}</span></a>`).join('')}<div class="notice">External links require an internet connection. The course text and saved worksheets remain available offline after the app has been loaded successfully.</div></div></section>`;
+  if(!l.resources || !l.resources.length) return '';
+  return `<section class="card"><div class="card-header"><div class="section-kicker">External learning</div><div class="section-title">Free supplemental instruction</div></div><div class="card-body">${l.resources.map(r=>`<a class="link-card" href="${r.url}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(r.title)} ↗</strong><span>${escapeHtml(r.note)}</span></a>`).join('')}<div class="notice">External links require internet access. Course text and saved worksheets remain available offline after the app has loaded successfully.</div></div></section>`;
 }
 function lessonNavButtons(id){
-  const idx=LESSONS.findIndex(l=>l.id===id); let html='';
-  if(idx>0) html+=`<button type="button" class="btn" data-lesson="${LESSONS[idx-1].id}">← ${LESSONS[idx-1].id}</button>`;
-  if(idx<LESSONS.length-1) html+=`<button type="button" class="btn primary" data-lesson="${LESSONS[idx+1].id}">${LESSONS[idx+1].id} →</button>`;
-  else html+=`<button type="button" class="btn primary" data-route="module">Module overview</button>`;
+  const idx=ALL_LESSONS.findIndex(l=>l.id===id);
+  let html='';
+  if(idx>0) html+=`<button type="button" class="btn" data-lesson="${ALL_LESSONS[idx-1].id}">← ${escapeHtml(ALL_LESSONS[idx-1].id)}</button>`;
+  if(idx<ALL_LESSONS.length-1) html+=`<button type="button" class="btn primary" data-lesson="${ALL_LESSONS[idx+1].id}">${escapeHtml(ALL_LESSONS[idx+1].id)} →</button>`;
+  else html+=`<button type="button" class="btn primary" data-route="course">Course overview</button>`;
   return html;
 }
+
+function renderPractice(){
+  return renderShell(`
+    <h1 class="page-title">Practice</h1>
+    <p class="page-lede">Reusable attention exercises that support the course. These are brief drills, not a separate meditation program and not a substitute for the lesson worksheets.</p>
+    ${timerCard('anchor',180,'3-Minute Attention Anchor','Choose the breath, feet/body contact, or sounds. Notice when attention wanders and return to the anchor. Nothing else needs to happen.')}
+    ${timerCard('observe',120,'2-Minute Observe & Describe','Notice several sounds, physical sensations, or visual details. Describe them simply. If an interpretation appears, notice that it is an interpretation and return to observation.')}
+    ${timerCard('one',180,'3-Minute One-Mindful Task','Choose one simple activity. Do only that task. When attention moves to planning, remembering, judging, or another task, notice the shift and return.')}
+    ${timerCard('interaction',90,'90-Second Interaction Rehearsal','Imagine or recall a low-stakes conversation. Practice the question: “Am I trying to understand what this person means, or am I already preparing my answer?” Return attention to the current message.')}
+    <section class="card"><div class="card-header"><div class="section-kicker">Important distinction</div><div class="section-title">No Loving Kindness audio in this app</div></div><div class="card-body copy"><p>RO-DBT Loving Kindness Meditation is intentionally not duplicated here. This app is focused on conflict-related learning, attention, rehearsal, and skill acquisition.</p></div></section>
+  `,'practice');
+}
+function timerCard(id,seconds,title,instructions){
+  return `<section class="card timer-card" data-timer-card="${id}"><div class="card-header"><div class="section-kicker">Attention drill</div><div class="section-title">${escapeHtml(title)}</div></div><div class="card-body copy"><p>${escapeHtml(instructions)}</p><div class="timer-display" id="timer-${id}">${formatTime(seconds)}</div><div class="btn-row"><button class="btn primary" type="button" data-timer-start="${id}" data-duration="${seconds}">Start</button><button class="btn" type="button" data-timer-reset="${id}" data-duration="${seconds}">Reset</button></div></div></section>`;
+}
+function formatTime(seconds){
+  const s=Math.max(0,Math.round(seconds));
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+function stopPracticeTimer(){
+  if(practiceTimer.interval) clearInterval(practiceTimer.interval);
+  practiceTimer={interval:null,id:null,remaining:0,total:0,running:false};
+}
+function startTimer(id,total){
+  if(practiceTimer.id!==id){ stopPracticeTimer(); practiceTimer={interval:null,id,remaining:total,total,running:false}; }
+  if(practiceTimer.running){
+    clearInterval(practiceTimer.interval); practiceTimer.interval=null; practiceTimer.running=false;
+    updateTimerButton(id,'Resume'); return;
+  }
+  if(practiceTimer.remaining<=0) practiceTimer.remaining=total;
+  practiceTimer.running=true; updateTimerButton(id,'Pause'); updateTimerDisplay(id);
+  practiceTimer.interval=setInterval(()=>{
+    practiceTimer.remaining-=1; updateTimerDisplay(id);
+    if(practiceTimer.remaining<=0){ clearInterval(practiceTimer.interval); practiceTimer.interval=null; practiceTimer.running=false; updateTimerButton(id,'Start again'); }
+  },1000);
+}
+function resetTimer(id,total){
+  if(practiceTimer.id===id) stopPracticeTimer();
+  const el=document.getElementById(`timer-${id}`); if(el) el.textContent=formatTime(total);
+  updateTimerButton(id,'Start');
+}
+function updateTimerDisplay(id){ const el=document.getElementById(`timer-${id}`); if(el) el.textContent=formatTime(practiceTimer.remaining); }
+function updateTimerButton(id,text){ const btn=document.querySelector(`[data-timer-start="${CSS.escape(id)}"]`); if(btn) btn.textContent=text; }
+
 function renderResources(){
   return renderShell(`
-    <h1 class="page-title">Resources</h1><p class="page-lede">Primary manuals remain the main technical sources. Videos and outside materials are used to deepen understanding, not to replace the source texts.</p>
-    <section class="card"><div class="card-header"><div class="section-kicker">RO-DBT</div><div class="section-title">Primary and clinician instruction</div></div><div class="card-body">
-      <a class="link-card" href="https://www.newharbinger.com/9781626259317/the-skills-training-manual-for-radically-open-dialectical-behavior-therapy/" target="_blank" rel="noopener noreferrer"><strong>RO-DBT Skills Training Manual ↗</strong><span>Thomas R. Lynch. Primary source for RO-DBT lesson structure, handouts, worksheets, and skills.</span></a>
-      <a class="link-card" href="https://www.youtube.com/@jennifermayph.d.2761" target="_blank" rel="noopener noreferrer"><strong>Jennifer May, PhD — YouTube channel ↗</strong><span>Clinician-created videos covering RO-DBT, standard DBT, and related skills.</span></a>
-      <a class="link-card" href="https://rodbtskillsclasses.vhx.tv/products" target="_blank" rel="noopener noreferrer"><strong>Official pre-recorded RO-DBT Skills Classes ↗</strong><span>Paid lesson-by-lesson RO-DBT skills classes.</span></a>
+    <h1 class="page-title">Resources</h1>
+    <p class="page-lede">The app contains the stand-alone teaching. External resources are optional supplements. Manual references are listed inside the lessons without purchase links.</p>
+    <section class="card"><div class="card-header"><div class="section-kicker">Jennifer May, PhD</div><div class="section-title">Mindfulness and conflict-relevant skills</div></div><div class="card-body">
+      <a class="link-card" href="https://www.youtube.com/watch?v=AjKi81uqHK0" target="_blank" rel="noopener noreferrer"><strong>DBT Mindfulness Intro ↗</strong><span>Introduction to mindfulness and its uses.</span></a>
+      <a class="link-card" href="https://www.youtube.com/watch?v=TlrIi3V50Qs" target="_blank" rel="noopener noreferrer"><strong>DBT Mindfulness What Skills ↗</strong><span>Observe, Describe, and Participate.</span></a>
+      <a class="link-card" href="https://www.youtube.com/watch?v=1vWsgg9JiDo" target="_blank" rel="noopener noreferrer"><strong>DBT Mindfulness How Skills ↗</strong><span>Nonjudgmentally, One-Mindfully, and Effectively.</span></a>
+      <a class="link-card" href="https://www.youtube.com/watch?v=fkEJXu-SxLw" target="_blank" rel="noopener noreferrer"><strong>RO-DBT Lesson 2 — Understanding Emotions ↗</strong><span>Cue and emotional-response-system instruction.</span></a>
+      <a class="link-card" href="https://www.youtube.com/watch?v=Od9GaNk9Clk" target="_blank" rel="noopener noreferrer"><strong>DBT STOP Skill ↗</strong><span>Behavioral interruption skill.</span></a>
+      <a class="link-card" href="https://www.youtube.com/watch?v=sd0OK8K0HDg" target="_blank" rel="noopener noreferrer"><strong>DBT TIPP Skills ↗</strong><span>Body-based distress-tolerance instruction.</span></a>
+      <a class="link-card" href="https://www.youtube.com/@jennifermayph.d.2761" target="_blank" rel="noopener noreferrer"><strong>Jennifer May YouTube channel ↗</strong><span>Broader RO-DBT and standard DBT clinician-created teaching.</span></a>
     </div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Standard DBT</div><div class="section-title">Primary and clinician instruction</div></div><div class="card-body">
-      <a class="link-card" href="https://www.guilford.com/dbt-manual" target="_blank" rel="noopener noreferrer"><strong>Guilford DBT supplementary materials ↗</strong><span>Official resource page for Linehan DBT skills materials.</span></a>
-      <a class="link-card" href="https://jamesfitzgeraldtherapy.com/dbt-distress-tolerance-skills-training/" target="_blank" rel="noopener noreferrer"><strong>DBT Distress Tolerance resource index ↗</strong><span>Indexes Jennifer May videos for STOP, TIPP, and other distress-tolerance material.</span></a>
+    <section class="card"><div class="card-header"><div class="section-kicker">Free reference indexes</div><div class="section-title">Supporting material</div></div><div class="card-body">
+      <a class="link-card" href="https://jamesfitzgeraldtherapy.com/dbt-mindfulness-skills-training/" target="_blank" rel="noopener noreferrer"><strong>DBT Mindfulness Skills Training index ↗</strong><span>Indexes standard DBT mindfulness topics and Jennifer May videos.</span></a>
+      <a class="link-card" href="https://jamesfitzgeraldtherapy.com/dbt-distress-tolerance-skills-training/" target="_blank" rel="noopener noreferrer"><strong>DBT Distress Tolerance index ↗</strong><span>Indexes STOP, TIPP, and related skills resources.</span></a>
+      <a class="link-card" href="https://www.guilford.com/dbt-manual" target="_blank" rel="noopener noreferrer"><strong>Guilford DBT supplementary materials ↗</strong><span>Official standard DBT resource page.</span></a>
     </div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Supplemental</div><div class="section-title">Relationship and arousal material</div></div><div class="card-body">
-      <a class="link-card" href="https://www.thepactinstitute.com/intro-to-pact-webinar" target="_blank" rel="noopener noreferrer"><strong>PACT Institute — free Intro to PACT webinar ↗</strong><span>Optional supplement on arousal regulation, attachment, and secure functioning.</span></a>
-    </div></section>
+    <section class="card"><div class="card-header"><div class="section-kicker">Optional broader supplement</div><div class="section-title">PACT</div></div><div class="card-body"><a class="link-card" href="https://www.thepactinstitute.com/intro-to-pact-webinar" target="_blank" rel="noopener noreferrer"><strong>PACT Institute — free Intro to PACT webinar ↗</strong><span>Optional material on arousal regulation, attachment, and secure functioning. Not required for the mindfulness foundation or Module 1.</span></a></div></section>
   `,'resources');
 }
-function renderAbout(){
+
+function renderSettings(){
   return renderShell(`
-    <h1 class="page-title">About this training</h1>
-    <section class="card"><div class="card-header"><div class="section-kicker">Version 0.1.0</div><div class="section-title">First web-based training prototype</div></div><div class="card-body copy">
-      <p>This first iteration contains Module 1 only. It is designed as a phone-first progressive web app and uses a visual layout similar to the companion RO-DBT diary app.</p>
-      <ul class="about-list"><li>iPhone-friendly touch targets and safe-area spacing.</li><li>Can be installed to the Home Screen when served over HTTPS.</li><li>Lesson completion, practice notes, and quiz selections save locally in this browser using IndexedDB.</li><li>Local course content is cached for offline access after first load.</li><li>External videos and websites still require internet access.</li></ul>
-      <div class="notice">Local browser storage is not the same as a backup. A later version can add export/import once the training structure is settled.</div>
+    <h1 class="page-title">Settings</h1>
+    <section class="card"><div class="card-header"><div class="section-kicker">Privacy</div><div class="section-title">4-digit app passcode</div></div><div class="card-body copy">
+      <p>The passcode prevents casual access to the training app and locally stored worksheet notes. The app locks after ${Math.round(AUTO_LOCK_MS/60000)} minutes of inactivity or background time.</p>
+      <div class="notice">A four-digit passcode is a convenience/privacy lock, not strong encryption. Local data is not yet backed up.</div>
+      <div class="btn-row"><button class="btn primary" type="button" data-action="lock-now">Lock now</button><button class="btn" type="button" data-action="change-pin">Change passcode</button></div>
     </div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Course principles</div></div><div class="card-body copy"><ul><li>Universal framing: the course does not assume a particular relationship, diagnosis, or conflict pattern.</li><li>No hidden prerequisites: terms are defined before they are used.</li><li>Examples remain broad and include source-manual examples as well as interpersonal situations.</li><li>Custom integrations are labeled rather than presented as official skills.</li><li>Training supports but does not replace professional treatment.</li></ul></div></section>
-    <section class="card"><div class="card-header"><div class="section-kicker">Local data</div></div><div class="card-body copy"><p>Resetting removes lesson completion, worksheet notes, and quiz selections stored by this training app on this browser.</p><button type="button" class="btn" data-action="reset-data">Reset training data</button></div></section>
-  `,'about');
+    <section class="card"><div class="card-header"><div class="section-kicker">Local data</div><div class="section-title">Training records on this device</div></div><div class="card-body copy">
+      <p>Lesson completion, practice worksheets, and knowledge-check selections are stored locally in this browser using IndexedDB. Updating the files in the same GitHub Pages site does not intentionally clear that database.</p>
+      <div class="btn-row"><button type="button" class="btn" data-action="reset-course">Reset course progress & notes</button><button type="button" class="btn danger-btn" data-action="erase-all">Erase app data & passcode</button></div>
+    </div></section>
+    <section class="card"><div class="card-header"><div class="section-kicker">Version ${VERSION}</div><div class="section-title">Current build</div></div><div class="card-body copy">
+      <ul><li>Added Mindfulness & Attention Foundation F1-F4.</li><li>Added a reusable Practice area without Loving Kindness audio.</li><li>Added 4-digit passcode setup, unlock, change-code flow, privacy cover, and auto-lock.</li><li>Removed paid prerecorded RO-DBT class links and RO-DBT manual purchase links.</li><li>Preserved the Module 1 worksheet keys and database name so existing v0.1.0 notes can carry forward on the same site.</li></ul>
+    </div></section>
+  `,'settings');
 }
+
 function render(){
+  if(!unlocked){ renderPinScreen(); return; }
   const app=document.getElementById('app');
   if(state.route==='lesson') app.innerHTML=renderLesson(state.currentLesson);
-  else if(state.route==='module') app.innerHTML=renderModule();
+  else if(state.route==='practice') app.innerHTML=renderPractice();
   else if(state.route==='resources') app.innerHTML=renderResources();
-  else if(state.route==='about') app.innerHTML=renderAbout();
-  else app.innerHTML=renderHome();
-  bind(); restoreFields();
+  else if(state.route==='settings') app.innerHTML=renderSettings();
+  else app.innerHTML=renderCourse();
+  bind(); restoreFields(); markActivity();
   requestAnimationFrame(()=>{ const main=document.getElementById('main-content'); if(main) main.scrollTop=0; });
 }
 function bind(){
-  document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',()=>{ state.route=el.dataset.route; persist(); render(); }));
-  document.querySelectorAll('[data-lesson]').forEach(el=>el.addEventListener('click',()=>{ state.currentLesson=el.dataset.lesson; state.route='lesson'; persist(); render(); }));
+  document.querySelectorAll('[data-route]').forEach(el=>el.addEventListener('click',()=>{ stopPracticeTimer(); state.route=el.dataset.route; persist(); render(); }));
+  document.querySelectorAll('[data-lesson]').forEach(el=>el.addEventListener('click',()=>{ stopPracticeTimer(); state.currentLesson=el.dataset.lesson; state.route='lesson'; persist(); render(); }));
   document.querySelectorAll('[data-field]').forEach(el=>{
-    el.addEventListener('input',()=>{ state.fields[el.dataset.field]=el.value; persist(); showSaved(el); });
-    el.addEventListener('change',()=>{ state.fields[el.dataset.field]=el.value; persist(); showSaved(el); });
+    el.addEventListener('input',()=>{ state.fields[el.dataset.field]=el.value; persist(); showSaved(el); markActivity(); });
+    el.addEventListener('change',()=>{ state.fields[el.dataset.field]=el.value; persist(); showSaved(el); markActivity(); });
   });
   document.querySelectorAll('[data-field-check]').forEach(el=>el.addEventListener('change',()=>{
     const key=el.dataset.fieldCheck;
     const vals=Array.from(document.querySelectorAll(`[data-field-check="${CSS.escape(key)}"]`)).filter(x=>x.checked).map(x=>x.value);
-    state.fields[key]=vals; persist(); showSaved(el);
+    state.fields[key]=vals; persist(); showSaved(el); markActivity();
   }));
   document.querySelectorAll('[data-quiz]').forEach(el=>el.addEventListener('change',()=>handleQuiz(el)));
   document.querySelectorAll('[data-complete]').forEach(el=>el.addEventListener('change',()=>{
     state.completed[el.dataset.complete]=el.checked; persist();
-    const pill=document.querySelector('.status-pill'); if(pill) pill.textContent=`${completedCount()}/${LESSONS.length} complete`;
+    const pill=document.querySelector('.status-pill'); if(pill) pill.textContent=`${completedCount()}/${ALL_LESSONS.length} complete`;
   }));
-  const reset=document.querySelector('[data-action="reset-data"]');
-  if(reset) reset.addEventListener('click',async()=>{
-    if(!confirm('Reset all Module 1 training data stored in this browser?')) return;
-    state=structuredClone(DEFAULT_STATE); await immediateSave(); render();
-  });
+  document.querySelectorAll('[data-timer-start]').forEach(el=>el.addEventListener('click',()=>startTimer(el.dataset.timerStart,Number(el.dataset.duration))));
+  document.querySelectorAll('[data-timer-reset]').forEach(el=>el.addEventListener('click',()=>resetTimer(el.dataset.timerReset,Number(el.dataset.duration))));
+  document.querySelector('[data-action="lock-now"]')?.addEventListener('click',()=>lockNow());
+  document.querySelector('[data-action="change-pin"]')?.addEventListener('click',()=>startChangePin());
+  document.querySelector('[data-action="reset-course"]')?.addEventListener('click',resetCourseData);
+  document.querySelector('[data-action="erase-all"]')?.addEventListener('click',eraseAllData);
 }
 function restoreFields(){
   document.querySelectorAll('[data-field]').forEach(el=>{ const v=state.fields[el.dataset.field]; if(v!==undefined) el.value=v; });
@@ -611,14 +957,126 @@ function handleQuiz(el){
   state.quizzes[el.dataset.quiz]={selected,correct}; persist();
   const fb=document.getElementById(`feedback-${lessonId}-${qi}`); if(fb){ fb.className=`quiz-feedback show ${correct?'correct':'incorrect'}`; fb.textContent=q.explain; }
 }
-function immediateSave(){
-  state.updatedAt=new Date().toISOString();
-  return new Promise(resolve=>{ try{ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(state,STATE_KEY); tx.oncomplete=resolve; tx.onerror=resolve; }catch(_){ resolve(); } });
+async function resetCourseData(){
+  if(!confirm('Reset all lesson completion, worksheet notes, and knowledge-check answers? The passcode will be kept.')) return;
+  state.completed={}; state.fields={}; state.quizzes={}; state.route='course'; state.currentLesson='F1'; await immediateSave(); render();
 }
+async function eraseAllData(){
+  if(!confirm('Erase ALL local training data, including worksheet notes and the passcode?')) return;
+  if(!confirm('This cannot be undone because this version has no backup. Erase everything?')) return;
+  await deleteDatabaseAndRestart();
+}
+
+// ---- 4-digit passcode ------------------------------------------------------
+function bytesToB64(bytes){ let s=''; bytes.forEach(b=>s+=String.fromCharCode(b)); return btoa(s); }
+function b64ToBytes(s){ const raw=atob(s); return Uint8Array.from(raw,c=>c.charCodeAt(0)); }
+async function derivePin(pin,saltB64){
+  if(!crypto?.subtle) throw new Error('Secure passcode functions are not available in this browser.');
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode(pin),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:b64ToBytes(saltB64),iterations:60000},key,256);
+  return bytesToB64(new Uint8Array(bits));
+}
+async function saveNewPin(pin){
+  const salt=new Uint8Array(16); crypto.getRandomValues(salt);
+  const saltB64=bytesToB64(salt); const hash=await derivePin(pin,saltB64);
+  state.security={pinSet:true,pinSalt:saltB64,pinHash:hash}; await immediateSave();
+}
+async function verifyPin(pin){
+  if(!state.security.pinSet) return false;
+  const hash=await derivePin(pin,state.security.pinSalt); return hash===state.security.pinHash;
+}
+function pinTitle(){
+  if(pinMode==='setup-first') return ['Create a passcode','Choose a 4-digit code to protect local training notes.'];
+  if(pinMode==='setup-confirm') return ['Confirm passcode','Enter the same 4 digits again.'];
+  if(pinMode==='change-verify') return ['Change passcode','Enter the current 4-digit code first.'];
+  if(pinMode==='change-first') return ['Choose new passcode','Enter a new 4-digit code.'];
+  if(pinMode==='change-confirm') return ['Confirm new passcode','Enter the new code again.'];
+  return ['Enter passcode','Unlock Personal Conflict Training.'];
+}
+function renderPinScreen(){
+  const app=document.getElementById('app');
+  const [title,sub]=pinTitle();
+  const dots=[0,1,2,3].map(i=>`<span class="pin-dot ${i<pinBuffer.length?'filled':''}"></span>`).join('');
+  app.innerHTML=`<div class="lock-shell"><div class="lock-card"><div class="lock-brand">Personal Conflict Training</div><div class="lock-version">v${VERSION}</div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p><div class="pin-dots" aria-label="${pinBuffer.length} of 4 digits entered">${dots}</div><div class="pin-message ${pinMessage?'show':''}" aria-live="polite">${escapeHtml(pinMessage||' ')}</div><div class="pin-keypad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button type="button" data-pin-digit="${n}">${n}</button>`).join('')}<button type="button" data-pin-clear aria-label="Clear passcode">⌫</button><button type="button" data-pin-digit="0">0</button><button type="button" data-pin-empty disabled aria-hidden="true"></button></div>${pinMode==='unlock'?'<button class="forgot-btn" type="button" data-forgot-pin>Forgot passcode?</button>':''}</div></div>`;
+  bindPinScreen();
+}
+function bindPinScreen(){
+  document.querySelectorAll('[data-pin-digit]').forEach(b=>b.addEventListener('click',()=>addPinDigit(b.dataset.pinDigit)));
+  document.querySelector('[data-pin-clear]')?.addEventListener('click',()=>{ pinBuffer=pinBuffer.slice(0,-1); pinMessage=''; renderPinScreen(); });
+  document.querySelector('[data-forgot-pin]')?.addEventListener('click',async()=>{
+    if(!confirm('There is no passcode recovery in this version. Erasing the app data will remove the passcode and all locally saved training notes. Continue?')) return;
+    if(!confirm('Erase all local app data and start over?')) return;
+    await deleteDatabaseAndRestart();
+  });
+}
+async function addPinDigit(d){
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=String(d); pinMessage=''; renderPinScreen();
+  if(pinBuffer.length===4) setTimeout(processPin,80);
+}
+async function processPin(){
+  const entered=pinBuffer;
+  try{
+    if(pinMode==='setup-first' || pinMode==='change-first'){
+      firstPin=entered; pinBuffer=''; pinMode=pinMode==='setup-first'?'setup-confirm':'change-confirm'; pinMessage=''; renderPinScreen(); return;
+    }
+    if(pinMode==='setup-confirm' || pinMode==='change-confirm'){
+      if(entered!==firstPin){ firstPin=''; pinBuffer=''; pinMode=pinMode==='setup-confirm'?'setup-first':'change-first'; pinMessage='Codes did not match. Try again.'; renderPinScreen(); return; }
+      await saveNewPin(entered); pinBuffer=''; firstPin=''; pinMessage=''; unlocked=true; state.route='course'; render(); return;
+    }
+    if(pinMode==='change-verify'){
+      if(await verifyPin(entered)){ pinBuffer=''; firstPin=''; pinMode='change-first'; pinMessage=''; renderPinScreen(); }
+      else { pinBuffer=''; pinMessage='Incorrect passcode.'; renderPinScreen(); }
+      return;
+    }
+    if(await verifyPin(entered)){ pinBuffer=''; pinMessage=''; unlocked=true; render(); }
+    else { pinBuffer=''; pinMessage='Incorrect passcode.'; renderPinScreen(); }
+  }catch(e){ pinBuffer=''; pinMessage='Unable to verify the passcode in this browser.'; renderPinScreen(); }
+}
+function startChangePin(){ stopPracticeTimer(); unlocked=false; pinMode='change-verify'; pinBuffer=''; firstPin=''; pinMessage=''; clearTimeout(inactivityTimer); renderPinScreen(); }
+function lockNow(){
+  if(!state.security.pinSet) return;
+  stopPracticeTimer(); unlocked=false; pinMode='unlock'; pinBuffer=''; firstPin=''; pinMessage=''; clearTimeout(inactivityTimer); document.body.classList.remove('privacy-covered'); renderPinScreen();
+}
+async function deleteDatabaseAndRestart(){
+  stopPracticeTimer(); clearTimeout(inactivityTimer);
+  try{ db?.close(); }catch(_){ }
+  await new Promise(resolve=>{ const req=indexedDB.deleteDatabase(DB_NAME); req.onsuccess=resolve; req.onerror=resolve; req.onblocked=resolve; });
+  location.reload();
+}
+function markActivity(){
+  if(!unlocked || !state.security.pinSet) return;
+  clearTimeout(inactivityTimer); inactivityTimer=setTimeout(lockNow,AUTO_LOCK_MS);
+}
+function setupSecurityListeners(){
+  ['pointerdown','keydown','input','touchstart'].forEach(evt=>document.addEventListener(evt,markActivity,{passive:true}));
+  document.addEventListener('scroll',markActivity,true);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){ hiddenAt=Date.now(); document.body.classList.add('privacy-covered'); }
+    else {
+      document.body.classList.remove('privacy-covered');
+      if(unlocked && state.security.pinSet && hiddenAt && Date.now()-hiddenAt>=AUTO_LOCK_MS) lockNow();
+      else markActivity();
+      hiddenAt=null;
+    }
+  });
+  window.addEventListener('pagehide',()=>{ document.body.classList.add('privacy-covered'); });
+  window.addEventListener('pageshow',()=>{ document.body.classList.remove('privacy-covered'); });
+  document.addEventListener('keydown',e=>{
+    if(unlocked) return;
+    if(/^\d$/.test(e.key)){ e.preventDefault(); addPinDigit(e.key); }
+    else if(e.key==='Backspace'){ e.preventDefault(); pinBuffer=pinBuffer.slice(0,-1); pinMessage=''; renderPinScreen(); }
+  });
+}
+
 async function init(){
   if(!window.indexedDB){ document.getElementById('app').innerHTML='<div style="padding:24px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif"><h2>Browser not supported</h2><p>This training app requires local browser storage.</p></div>'; return; }
-  try{ db=await openDb(); state=Object.assign(structuredClone(DEFAULT_STATE),await loadState()); }catch(_){ state=structuredClone(DEFAULT_STATE); }
-  render();
-  if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js?v=0.1.0').catch(()=>{});
+  try{ db=await openDb(); state=normalizeState(await loadState()); }catch(_){ state=structuredClone(DEFAULT_STATE); }
+  setupSecurityListeners();
+  if(state.security.pinSet){ unlocked=false; pinMode='unlock'; }
+  else { unlocked=false; pinMode='setup-first'; }
+  renderPinScreen();
+  if('serviceWorker' in navigator && location.protocol!=='file:') navigator.serviceWorker.register('./sw.js?v=0.2.0').then(r=>r.update()).catch(()=>{});
 }
 init();

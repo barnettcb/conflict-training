@@ -1,0 +1,14 @@
+{
+  "name": "Personal Conflict Training",
+  "short_name": "Conflict Training",
+  "description": "Local-first skills training for conflict awareness, interruption, regulation, listening, and later modules.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edf3f8",
+  "theme_color": "#315f8b",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
